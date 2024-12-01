@@ -1,0 +1,18 @@
+[package]
+name = "advent-of-code-2024"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+arrayvec = "0.7.6"
+derive_more = { version = "1.0.0", features = [
+  "add",
+  "add_assign",
+  "not",
+  "mul",
+  "mul_assign",
+  "sum",
+] }
+ndarray = "0.16.1"
+num = "0.4.3"
+regex = "1.11.1"
