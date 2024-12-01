@@ -38,6 +38,8 @@ where
 fn is_todo(error: &dyn Any) -> bool {
     if let Some(&s) = error.downcast_ref::<&str>() {
         s.starts_with("not yet implemented")
+    } else if let Some(s) = error.downcast_ref::<String>() {
+        s.starts_with("not yet implemented")
     } else {
         false
     }
