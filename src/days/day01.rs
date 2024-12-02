@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::harness::input::RawInput;
 
 pub fn solve_part1(input: RawInput) -> usize {
@@ -13,9 +15,13 @@ pub fn solve_part1(input: RawInput) -> usize {
 
 pub fn solve_part2(input: RawInput) -> usize {
     let (lefts, rights) = get_lists(input);
+    let mut right_counts = HashMap::new();
+    for right in rights {
+        *right_counts.entry(right).or_insert(0) += 1;
+    }
     lefts
         .into_iter()
-        .map(|left| rights.iter().filter(|&&right| right == left).count() * left)
+        .map(|left| right_counts.get(&left).copied().unwrap_or_default() * left)
         .sum()
 }
 
