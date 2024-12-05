@@ -98,4 +98,9 @@ impl<'a> RawInput<'a> {
             .split("\n\n")
             .map(move |group| group.lines().map(|line| f(LineInput(line))).collect())
     }
+
+    pub fn split_once_on_empty_line(&self) -> (RawInput<'a>, RawInput<'a>) {
+        let (a, b) = self.0.split_once("\n\n").unwrap();
+        (RawInput(a), RawInput(b))
+    }
 }
