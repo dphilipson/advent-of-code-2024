@@ -11,21 +11,14 @@ struct State {
 }
 
 pub fn solve_part1(input: RawInput) -> usize {
-    let (grid, walls, mut state) = get_initial_state(input);
-    let mut visited = HashSet::new();
-    loop {
-        visited.insert(state.pos);
-        let Some(next_state) = get_next_state(&grid, &walls, state) else {
-            return visited.len();
-        };
-        state = next_state;
-    }
+    let (grid, walls, state) = get_initial_state(input);
+    get_visited(&grid, &walls, state).len()
 }
 
 pub fn solve_part2(input: RawInput) -> usize {
     let (grid, walls, initial_state) = get_initial_state(input);
     let mut count = 0;
-    for ij in grid.indices() {
+    for ij in get_visited(&grid, &walls, initial_state) {
         let mut state = initial_state;
         let mut seen_states: HashSet<State> = HashSet::new();
         let mut walls = walls.clone();
@@ -71,5 +64,20 @@ fn get_next_state(grid: &Grid<char>, walls: &HashSet<[usize; 2]>, state: State) 
         Some(State { pos: next_pos, dir })
     } else {
         None
+    }
+}
+
+fn get_visited(
+    grid: &Grid<char>,
+    walls: &HashSet<[usize; 2]>,
+    mut state: State,
+) -> HashSet<[usize; 2]> {
+    let mut visited = HashSet::new();
+    loop {
+        visited.insert(state.pos);
+        let Some(next_state) = get_next_state(grid, walls, state) else {
+            return visited;
+        };
+        state = next_state;
     }
 }
