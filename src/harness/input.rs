@@ -55,6 +55,11 @@ impl<'a> LineInput<'a> {
             .collect()
     }
 
+    pub fn split_once(&self, pattern: &str) -> (Self, Self) {
+        let (a, b) = self.0.split_once(pattern).unwrap();
+        (Self(a), Self(b))
+    }
+
     pub fn parse_with_regex<T>(&self, re: &Regex) -> T
     where
         T: MatchTuple<'a>,
@@ -83,7 +88,7 @@ impl<'a> RawInput<'a> {
         f(LineInput(line))
     }
 
-    pub fn per_line<F, T>(&self, f: F) -> impl Iterator<Item = T> + 'a
+    pub fn per_line<'b, F, T>(&self, f: F) -> impl Iterator<Item = T> + 'a
     where
         F: Fn(LineInput) -> T + 'static,
     {
@@ -99,8 +104,8 @@ impl<'a> RawInput<'a> {
             .map(move |group| group.lines().map(|line| f(LineInput(line))).collect())
     }
 
-    pub fn split_once_on_empty_line(&self) -> (RawInput<'a>, RawInput<'a>) {
+    pub fn split_once_on_empty_line(&self) -> (Self, Self) {
         let (a, b) = self.0.split_once("\n\n").unwrap();
-        (RawInput(a), RawInput(b))
+        (Self(a), Self(b))
     }
 }

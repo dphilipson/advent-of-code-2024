@@ -59,6 +59,10 @@ impl<T: Clone + Default> Grid<T> {
         self.0.ncols()
     }
 
+    pub fn is_in_bounds(&self, [i, j]: [usize; 2]) -> bool {
+        i < self.nrows() && j < self.ncols()
+    }
+
     pub fn neighbors(&self, [i, j]: [usize; 2]) -> impl Iterator<Item = [usize; 2]> {
         let nrows = self.nrows();
         let ncols = self.ncols();
