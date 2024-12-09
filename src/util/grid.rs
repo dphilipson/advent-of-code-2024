@@ -8,7 +8,7 @@ use std::str::FromStr;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Grid<T>(pub Array2<T>);
 
-impl Grid<u32> {
+impl Grid<usize> {
     pub fn parse_digits(s: &str) -> Self {
         parse_grid(s, |line| line.digits())
     }

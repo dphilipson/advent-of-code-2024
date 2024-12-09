@@ -32,8 +32,8 @@ impl<'a> LineInput<'a> {
         self.0.bytes().collect()
     }
 
-    pub fn digits(&self) -> Vec<u32> {
-        self.0.bytes().map(|b| (b - b'0') as u32).collect()
+    pub fn digits(&self) -> Vec<usize> {
+        self.0.bytes().map(|b| (b - b'0') as usize).collect()
     }
 
     pub fn split<T>(&self, pattern: &str) -> Vec<T>
