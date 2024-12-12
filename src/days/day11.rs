@@ -13,10 +13,12 @@ pub fn solve_part2(input: RawInput) -> usize {
 fn solve(input: RawInput, times: usize) -> usize {
     let stones = input.single_line(|line| line.split_whitespace::<usize>());
     let mut cache = HashMap::new();
-    stones
+    let out = stones
         .into_iter()
         .map(|n| get_count(n, times, &mut cache))
-        .sum()
+        .sum();
+    println!("{:?}", cache.len());
+    out
 }
 
 fn get_count(n: usize, times: usize, cache: &mut HashMap<(usize, usize), usize>) -> usize {
