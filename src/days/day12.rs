@@ -10,12 +10,12 @@ pub fn solve_part1(input: RawInput) -> usize {
 }
 
 pub fn solve_part2(input: RawInput) -> usize {
-    solve(input, count_sides)
+    solve(input, count_corners)
 }
 
 fn solve(input: RawInput, get_price: fn(&Grid<u8>, &HashSet<[usize; 2]>) -> usize) -> usize {
     let grid = Grid::parse_bytes(input.as_str());
-    let mut added = HashSet::new();
+    let mut added = HashSet::<[usize; 2]>::new();
     let mut out = 0;
     for ij in grid.indices() {
         if added.contains(&ij) {
@@ -35,9 +35,7 @@ fn solve(input: RawInput, get_price: fn(&Grid<u8>, &HashSet<[usize; 2]>) -> usiz
             .iter()
             .map(|state| state.state)
             .collect::<HashSet<_>>();
-        for &ij in &region {
-            added.insert(ij);
-        }
+        added.extend(&region);
         out += get_price(&grid, &region) * region.len();
     }
     out
@@ -54,37 +52,21 @@ fn get_perimeter(grid: &Grid<u8>, region: &HashSet<[usize; 2]>) -> usize {
     perimeter
 }
 
-fn count_sides(_: &Grid<u8>, region: &HashSet<[usize; 2]>) -> usize {
-    let mut counted = HashSet::new();
-    let mut sides = 0;
+fn count_corners(_: &Grid<u8>, region: &HashSet<[usize; 2]>) -> usize {
+    let mut corners = 0;
     for &ij in region {
         for dir in [[0, 1], [0, usize::MAX], [1, 0], [usize::MAX, 0]] {
-            if counted.contains(&(ij, dir)) {
-                continue;
-            }
-            let must_be_empty_dir = [dir[1], 0 - dir[0]];
-            let mut edge = vec![];
-            for sign in [1, usize::MAX] {
-                for d in 0.. {
-                    let new_ij = [ij[0] + sign * d * dir[0], ij[1] + sign * d * dir[1]];
-                    if !region.contains(&new_ij)
-                        || region.contains(&[
-                            new_ij[0] + must_be_empty_dir[0],
-                            new_ij[1] + must_be_empty_dir[1],
-                        ])
-                    {
-                        break;
-                    }
-                    edge.push(new_ij);
-                }
-            }
-            if !edge.is_empty() {
-                sides += 1;
-                for &ij in &edge {
-                    counted.insert((ij, dir));
-                }
+            let next_dir = [dir[1], 0 - dir[0]];
+            let has_side1 = region.contains(&[ij[0] + dir[0], ij[1] + dir[1]]);
+            let has_side2 = region.contains(&[ij[0] + next_dir[0], ij[1] + next_dir[1]]);
+            let has_diagonal =
+                region.contains(&[ij[0] + dir[0] + next_dir[0], ij[1] + dir[1] + next_dir[1]]);
+            let is_convex_corner = !has_side1 && !has_side2;
+            let is_concave_corner = has_side1 && has_side2 && !has_diagonal;
+            if is_convex_corner || is_concave_corner {
+                corners += 1;
             }
         }
     }
-    sides
+    corners
 }
