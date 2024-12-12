@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     harness::input::RawInput,
-    util::{grid::Grid, search::bfs},
+    util::{grid::Grid, idx2, search::bfs},
 };
 
 pub fn solve_part1(input: RawInput) -> usize {
@@ -55,12 +55,11 @@ fn get_perimeter(grid: &Grid<u8>, region: &HashSet<[usize; 2]>) -> usize {
 fn count_corners(_: &Grid<u8>, region: &HashSet<[usize; 2]>) -> usize {
     let mut corners = 0;
     for &ij in region {
-        for dir in [[0, 1], [0, usize::MAX], [1, 0], [usize::MAX, 0]] {
-            let next_dir = [dir[1], 0 - dir[0]];
-            let has_side1 = region.contains(&[ij[0] + dir[0], ij[1] + dir[1]]);
-            let has_side2 = region.contains(&[ij[0] + next_dir[0], ij[1] + next_dir[1]]);
-            let has_diagonal =
-                region.contains(&[ij[0] + dir[0] + next_dir[0], ij[1] + dir[1] + next_dir[1]]);
+        for dir in idx2::DIRECTIONS {
+            let next_dir = idx2::rotate_counterclockwise(dir);
+            let has_side1 = region.contains(&idx2::add(ij, dir));
+            let has_side2 = region.contains(&idx2::add(ij, next_dir));
+            let has_diagonal = region.contains(&idx2::add(ij, idx2::add(dir, next_dir)));
             let is_convex_corner = !has_side1 && !has_side2;
             let is_concave_corner = has_side1 && has_side2 && !has_diagonal;
             if is_convex_corner || is_concave_corner {

@@ -2,6 +2,9 @@ use derive_more::{Add, AddAssign, Neg, Product, Sub, SubAssign, Sum};
 use num::PrimInt;
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
+// Tuple structs for 2D, 3D, and 4D coordinates. Convenient because they
+// implement arithmetic operations and have a `neighbors` method. If you're
+// working with 2D grid indices, use the helpers in usize2 instead.
 pub trait CoordNum: PrimInt + Default {}
 
 impl<T> CoordNum for T where T: PrimInt + Default {}
