@@ -27,3 +27,38 @@ pub fn rotate_clockwise([i, j]: Idx2) -> Idx2 {
 pub fn rotate_counterclockwise([i, j]: Idx2) -> Idx2 {
     [0_usize.wrapping_sub(j), i]
 }
+
+pub trait Idx2Extensions {
+    fn add(&self, other: Idx2) -> Idx2;
+    fn sub(&self, other: Idx2) -> Idx2;
+    fn neg(&self) -> Idx2;
+    fn scalar_mul(&self, n: usize) -> Idx2;
+    fn rotate_clockwise(&self) -> Idx2;
+    fn rotate_counterclockwise(&self) -> Idx2;
+}
+
+impl Idx2Extensions for Idx2 {
+    fn add(&self, other: Idx2) -> Idx2 {
+        add(*self, other)
+    }
+
+    fn sub(&self, other: Idx2) -> Idx2 {
+        sub(*self, other)
+    }
+
+    fn neg(&self) -> Idx2 {
+        neg(*self)
+    }
+
+    fn scalar_mul(&self, n: usize) -> Idx2 {
+        scalar_mul(*self, n)
+    }
+
+    fn rotate_clockwise(&self) -> Idx2 {
+        rotate_clockwise(*self)
+    }
+
+    fn rotate_counterclockwise(&self) -> Idx2 {
+        rotate_counterclockwise(*self)
+    }
+}
