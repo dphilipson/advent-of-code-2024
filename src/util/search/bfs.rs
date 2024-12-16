@@ -4,14 +4,14 @@ use std::hash::Hash;
 
 pub fn search<S, FNext, I, FGoal>(
     initial_state: S,
-    get_next_states: FNext,
-    is_goal: FGoal,
+    mut get_next_states: FNext,
+    mut is_goal: FGoal,
 ) -> SearchResult<S>
 where
     S: Clone + Eq + Hash,
-    FNext: Fn(&S) -> I,
+    FNext: FnMut(&S) -> I,
     I: IntoIterator<Item = S>,
-    FGoal: Fn(&S) -> bool,
+    FGoal: FnMut(&S) -> bool,
 {
     let (seen_states, reached_goal) = {
         let mut seen_states = Vec::<TempState<S>>::new();
