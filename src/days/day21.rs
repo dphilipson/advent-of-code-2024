@@ -1,331 +1,143 @@
-use std::collections::HashMap;
+use crate::harness::input::RawInput;
 
-use crate::{
-    harness::input::RawInput,
-    util::{grid::Grid, idx2::Idx2Extensions, search::bfs},
-};
-
-#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
-struct State1 {
-    inner_robot: [usize; 2],
-    middle_robot: [usize; 2],
-    upper_robot: [usize; 2],
-    i: usize,
-}
-
-#[derive(Debug, Copy, Clone, Eq, Hash, PartialEq)]
-struct State {
-    inner_robot: [usize; 2],
-    outer_robots: [[usize; 2]; NUM_OUTER_ROBOTS],
-    goal_steps: usize,
-}
+const NUMERIC_KEYPAD: &[(char, [isize; 2])] = &[
+    ('0', [3, 1]),
+    ('1', [2, 0]),
+    ('2', [2, 1]),
+    ('3', [2, 2]),
+    ('4', [1, 0]),
+    ('5', [1, 1]),
+    ('6', [1, 2]),
+    ('7', [0, 0]),
+    ('8', [0, 1]),
+    ('9', [0, 2]),
+    ('A', [3, 2]),
+];
 
 pub fn solve_part1(input: RawInput) -> usize {
-    319 * get_best(&"319A".chars().collect::<Vec<_>>())
-        + 985 * get_best(&"985A".chars().collect::<Vec<_>>())
-        + 340 * get_best(&"340A".chars().collect::<Vec<_>>())
-        + 489 * get_best(&"489A".chars().collect::<Vec<_>>())
-        + 964 * get_best(&"964A".chars().collect::<Vec<_>>())
+    solve(input, 2)
 }
 
 pub fn solve_part2(input: RawInput) -> usize {
-    todo!("{}", &input.as_str()[..0])
+    solve(input, 25)
 }
 
-const NUM_OUTER_ROBOTS: usize = 2;
+fn solve(input: RawInput, num_outer_robots: usize) -> usize {
+    let costs = get_final_costs(num_outer_robots);
+    input
+        .per_line(move |line| {
+            let code = line.as_str();
+            let code_number = code[0..3].parse::<usize>().unwrap();
+            let chars = code.chars().collect::<Vec<_>>();
+            code_number * costs.get_numeric_code_cost(&chars)
+        })
+        .sum()
+}
 
-fn get_best(goal: &[char]) -> usize {
-    let mut input_costs = HashMap::new();
-    input_costs.insert('^', 1);
-    input_costs.insert('>', 1);
-    input_costs.insert('v', 1);
-    input_costs.insert('<', 1);
-    for _ in 0..NUM_OUTER_ROBOTS - 1 {
-        input_costs = get_directional_input_costs(&input_costs);
+/// Represents the costs to prep the robot to move in the given direction, i.e.
+/// the parent on the necessary arrow key and all its ancestors are on A, and
+/// then prep the robot to press the key it's over, i.e. all ancestors on 'A'.
+/// For the diagonals, the cost is to have the parent land on each of the
+/// diagonal parts. The "hard" diagonals are the ones that require the robot to
+/// press the diagonal parts in specifically that order.
+///
+/// Note that these costs do not include the cost of actually pressing the
+/// buttons. So for example if you want to move 1 right, 2 up, you should take
+/// `up_right + 3`.
+#[derive(Copy, Clone, Debug, Default)]
+struct DirectionalCosts {
+    right: usize,
+    up_right: usize,
+    up: usize,
+    up_left: usize,
+    left: usize,
+    down_left: usize,
+    down: usize,
+    down_right: usize,
+    hard_right_up: usize,
+    hard_up_left: usize,
+    hard_down_left: usize,
+    hard_right_down: usize,
+}
+
+impl DirectionalCosts {
+    fn next_costs(&self) -> Self {
+        let hard_right_up = 4 + self.down + self.up_left + self.right;
+        let hard_up_left = 6 + self.left + self.hard_down_left + self.hard_right_up;
+        let hard_down_left = 6 + self.down_left + self.left + self.hard_right_up;
+        let hard_right_down = 4 + self.down + self.left + self.up_right;
+        Self {
+            right: 2 + self.down + self.up,
+            up_right: hard_right_up.min(4 + self.left + self.down_right + self.up),
+            up: 2 + self.left + self.right,
+            up_left: hard_up_left.min(6 + self.hard_down_left + self.hard_right_up + self.right),
+            left: 6 + self.hard_down_left + self.hard_right_up,
+            down_left: hard_down_left.min(6 + self.hard_down_left + self.right + self.up_right),
+            down: 4 + self.down_left + self.up_right,
+            down_right: hard_right_down.min(4 + self.down_left + self.right + self.up),
+            hard_right_up,
+            hard_up_left,
+            hard_down_left,
+            hard_right_down,
+        }
     }
-    let numeric_costs = get_numeric_input_costs(&input_costs);
-    goal.iter().map(|&c| numeric_costs[&c]).sum()
-}
 
-// Returns a map of the costs to press each button ONCE.
-// fn get_next_input_costs(prev_costs: &HashMap<char, usize>) -> HashMap<char, usize> {
-//     let mut next_costs = HashMap::new();
-//     next_costs.insert('^', prev_costs[&'<'] + prev_costs[&'>'] + 1);
-//     next_costs.insert('>', prev_costs[&'v'] + prev_costs[&'^'] + 1);
-//     next_costs.insert(
-//         'v',
-//         prev_costs[&'<'] + prev_costs[&'v'] + prev_costs[&'^'] + prev_costs[&'>'] + 1,
-//     );
-//     next_costs.insert(
-//         '<',
-//         prev_costs[&'<'] + prev_costs[&'v'] + prev_costs[&'^'] + prev_costs[&'>'] + 3,
-//     );
-//     next_costs
-// }
-
-fn get_input_cost_for_location(prev_costs: &HashMap<char, usize>, [i, j]: [usize; 2]) -> usize {
-    let mut cost = 1;
-    if i > 0 {
-        cost += prev_costs[&'v'] + prev_costs[&'^'] + 2 * (i - 1);
+    fn get_numeric_code_cost(&self, chars: &[char]) -> usize {
+        let mut total_cost = 4;
+        let mut prev_char = 'A';
+        for &c in chars {
+            total_cost += self.get_numeric_single_key_cost(prev_char, c);
+            prev_char = c;
+        }
+        total_cost
     }
-    if j > 0 {
-        cost += prev_costs[&'<'] + prev_costs[&'>'] + 2 * (j - 1);
-    }
-    cost
-}
 
-fn get_directional_input_costs(prev_costs: &HashMap<char, usize>) -> HashMap<char, usize> {
-    [('^', [0, 1]), ('>', [1, 0]), ('v', [1, 1]), ('<', [1, 2])]
-        .into_iter()
-        .map(|(c, [i, j])| (c, get_input_cost_for_location(prev_costs, [i, j])))
-        .collect()
-}
-
-fn get_numeric_locations() -> HashMap<char, usize> {
-    [('0', [0, 1]), ('1')].into_iter().collect()
-}
-
-fn get_best2(goal: &[char]) -> usize {
-    let inner_keypad =
-        Grid::parse_chars("789\n456\n123\n 0A").map(|&c| if c == ' ' { None } else { Some(c) });
-    let outer_keypad =
-        Grid::parse_chars(" ^A\n<v>").map(|&c| if c == ' ' { None } else { Some(c) });
-    let initial_state = State {
-        inner_robot: [3, 2],
-        outer_robots: [[0, 2]; NUM_OUTER_ROBOTS],
-        goal_steps: 0,
-    };
-    let search_result = bfs::search(
-        initial_state,
-        |state| {
-            let &State {
-                inner_robot,
-                outer_robots,
-                goal_steps,
-            } = state;
-            let robot_to_activate = outer_robots
-                .iter()
-                .enumerate()
-                .find(|&(_, &robot)| outer_keypad[robot].unwrap() != 'A');
-            let mut next_states = vec![];
-            // I, Robot
-            for neighbor in outer_keypad.orthogonal_neighbors(outer_robots[0]) {
-                if outer_keypad[neighbor].is_some() {
-                    let mut next_outer_robots = outer_robots;
-                    next_outer_robots[0] = neighbor;
-                    next_states.push(State {
-                        inner_robot,
-                        outer_robots: next_outer_robots,
-                        goal_steps,
-                    });
-                }
-            }
-            if let Some((i, &robot)) = robot_to_activate {
-                let key = outer_keypad[robot].unwrap();
-                if i == outer_robots.len() - 1 {
-                    let next_inner_robot = inner_robot.add(direction_for_char(key));
-                    if inner_keypad.is_in_bounds(next_inner_robot)
-                        && inner_keypad[next_inner_robot].is_some()
-                    {
-                        next_states.push(State {
-                            inner_robot: next_inner_robot,
-                            outer_robots,
-                            goal_steps,
-                        });
-                    }
+    fn get_numeric_single_key_cost(&self, from_char: char, to_char: char) -> usize {
+        let from_pos = numeric_key_position(from_char);
+        let to_pos = numeric_key_position(to_char);
+        let di = to_pos[0] - from_pos[0];
+        let dj = to_pos[1] - from_pos[1];
+        let setup_cost = match (di.signum(), dj.signum()) {
+            (0, 1) => self.right,
+            (-1, 1) => self.up_right,
+            (-1, 0) => self.up,
+            (-1, -1) => {
+                if from_pos[0] == 3 && to_pos[1] == 0 {
+                    // Don't cross empty space.
+                    self.hard_up_left
                 } else {
-                    let next_robot = outer_robots[i + 1].add(direction_for_char(key));
-                    if outer_keypad.is_in_bounds(next_robot) && outer_keypad[next_robot].is_some() {
-                        let mut next_outer_robots = outer_robots;
-                        next_outer_robots[i + 1] = next_robot;
-                        next_states.push(State {
-                            inner_robot,
-                            outer_robots: next_outer_robots,
-                            goal_steps,
-                        });
-                    }
-                }
-            } else if inner_keypad[inner_robot].unwrap() == goal[goal_steps] {
-                next_states.push(State {
-                    inner_robot,
-                    outer_robots,
-                    goal_steps: goal_steps + 1,
-                });
-            }
-            next_states
-        },
-        |state| state.goal_steps == 4,
-    );
-    search_result.goal_state().unwrap().distance
-}
-
-fn get_best1(goal: &[char]) -> usize {
-    let inner_keypad =
-        Grid::parse_chars("789\n456\n123\n 0A").map(|&c| if c == ' ' { None } else { Some(c) });
-    let outer_keypad =
-        Grid::parse_chars(" ^A\n<v>").map(|&c| if c == ' ' { None } else { Some(c) });
-    let search_result = bfs::search(
-        State1 {
-            inner_robot: [3, 2],
-            middle_robot: [0, 2],
-            upper_robot: [0, 2],
-            i: 0,
-        },
-        |state| {
-            let &State1 {
-                inner_robot,
-                middle_robot,
-                upper_robot,
-                i,
-            } = state;
-            let mut next_states = Vec::new();
-            for neighbor in outer_keypad.orthogonal_neighbors(upper_robot) {
-                if outer_keypad[neighbor].is_some() {
-                    next_states.push(State1 {
-                        inner_robot,
-                        middle_robot,
-                        upper_robot: neighbor,
-                        i,
-                    });
+                    self.up_left
                 }
             }
-            let upper_key = outer_keypad[upper_robot].unwrap();
-            let middle_key = outer_keypad[middle_robot].unwrap();
-            let inner_key = inner_keypad[inner_robot].unwrap();
-
-            match upper_key {
-                'A' => match middle_key {
-                    'A' => {
-                        if inner_key == goal[i] {
-                            next_states.push(State1 {
-                                inner_robot,
-                                middle_robot,
-                                upper_robot,
-                                i: i + 1,
-                            });
-                        }
-                    }
-                    '>' => {
-                        let next_inner_robot = inner_robot.add([0, 1]);
-                        if inner_keypad.is_in_bounds(next_inner_robot)
-                            && inner_keypad[next_inner_robot].is_some()
-                        {
-                            next_states.push(State1 {
-                                inner_robot: next_inner_robot,
-                                middle_robot,
-                                upper_robot,
-                                i,
-                            });
-                        }
-                    }
-                    '^' => {
-                        let next_inner_robot = inner_robot.add([usize::MAX, 0]);
-                        if inner_keypad.is_in_bounds(next_inner_robot)
-                            && inner_keypad[next_inner_robot].is_some()
-                        {
-                            next_states.push(State1 {
-                                inner_robot: next_inner_robot,
-                                middle_robot,
-                                upper_robot,
-                                i,
-                            });
-                        }
-                    }
-                    '<' => {
-                        let next_inner_robot = inner_robot.add([0, usize::MAX]);
-                        if inner_keypad.is_in_bounds(next_inner_robot)
-                            && inner_keypad[next_inner_robot].is_some()
-                        {
-                            next_states.push(State1 {
-                                inner_robot: next_inner_robot,
-                                middle_robot,
-                                upper_robot,
-                                i,
-                            });
-                        }
-                    }
-                    'v' => {
-                        let next_inner_robot = inner_robot.add([1, 0]);
-                        if inner_keypad.is_in_bounds(next_inner_robot)
-                            && inner_keypad[next_inner_robot].is_some()
-                        {
-                            next_states.push(State1 {
-                                inner_robot: next_inner_robot,
-                                middle_robot,
-                                upper_robot,
-                                i,
-                            });
-                        }
-                    }
-                    _ => panic!("unexpected middle key: {middle_key}"),
-                },
-                '>' => {
-                    let next_middle_robot = middle_robot.add([0, 1]);
-                    if outer_keypad.is_in_bounds(next_middle_robot)
-                        && outer_keypad[next_middle_robot].is_some()
-                    {
-                        next_states.push(State1 {
-                            inner_robot,
-                            middle_robot: next_middle_robot,
-                            upper_robot,
-                            i,
-                        });
-                    }
+            (0, -1) => self.left,
+            (1, -1) => self.down_left,
+            (1, 0) => self.down,
+            (1, 1) => {
+                if from_pos[1] == 0 && to_pos[0] == 3 {
+                    // Don't cross empty space.
+                    self.hard_right_down
+                } else {
+                    self.down_right
                 }
-                '^' => {
-                    let next_middle_robot = middle_robot.add([usize::MAX, 0]);
-                    if outer_keypad.is_in_bounds(next_middle_robot)
-                        && outer_keypad[next_middle_robot].is_some()
-                    {
-                        next_states.push(State1 {
-                            inner_robot,
-                            middle_robot: next_middle_robot,
-                            upper_robot,
-                            i,
-                        });
-                    }
-                }
-                '<' => {
-                    let next_middle_robot = middle_robot.add([0, usize::MAX]);
-                    if outer_keypad.is_in_bounds(next_middle_robot)
-                        && outer_keypad[next_middle_robot].is_some()
-                    {
-                        next_states.push(State1 {
-                            inner_robot,
-                            middle_robot: next_middle_robot,
-                            upper_robot,
-                            i,
-                        });
-                    }
-                }
-                'v' => {
-                    let next_middle_robot = middle_robot.add([1, 0]);
-                    if outer_keypad.is_in_bounds(next_middle_robot)
-                        && outer_keypad[next_middle_robot].is_some()
-                    {
-                        next_states.push(State1 {
-                            inner_robot,
-                            middle_robot: next_middle_robot,
-                            upper_robot,
-                            i,
-                        });
-                    }
-                }
-                _ => panic!("unexpected middle key: {middle_key}"),
             }
-            next_states
-        },
-        |state| state.i == 4,
-    );
-    search_result.goal_state().unwrap().distance
-}
-
-fn direction_for_char(c: char) -> [usize; 2] {
-    match c {
-        '>' => [0, 1],
-        '^' => [usize::MAX, 0],
-        '<' => [0, usize::MAX],
-        'v' => [1, 0],
-        _ => panic!("unexpected direction char: {c}"),
+            _ => panic!("invalid direction"),
+        };
+        setup_cost + di.unsigned_abs() + dj.unsigned_abs()
     }
+}
+
+fn numeric_key_position(c: char) -> [isize; 2] {
+    NUMERIC_KEYPAD
+        .iter()
+        .find(|(key, _)| *key == c)
+        .map(|(_, pos)| *pos)
+        .expect("char should be in numeric keypad")
+}
+
+fn get_final_costs(num_outer_robots: usize) -> DirectionalCosts {
+    let mut costs = DirectionalCosts::default();
+    for _ in 0..num_outer_robots {
+        costs = costs.next_costs();
+    }
+    costs
 }
